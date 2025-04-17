@@ -50,22 +50,14 @@ const upload = multer({
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // CORS configuration
-app.use(cors({
-    origin: ['https://campuscubee.netlify.app', 'http://localhost:5173'],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
-
+app.use(cors());
 app.use(express.json());
 
-// Socket.IO configuration
+// Socket.IO setup
 const io = new Server(server, {
     cors: {
-        origin: ['https://campuscubee.netlify.app', 'http://localhost:5173'],
-        methods: ["GET", "POST"],
-        credentials: true,
-        allowedHeaders: ['Content-Type', 'Authorization']
+        origin: "http://localhost:5173",
+        methods: ["GET", "POST"]
     }
 });
 
@@ -84,7 +76,7 @@ const authenticateSocket = (socket, next) => {
     const token = socket.handshake.auth.token;
     if (!token) return next(new Error('Authentication error'));
 
-    jwt.verify(token, '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb', (err, decoded) => {
+    jwt.verify(token, process.env.JWT_SECRET || '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb', (err, decoded) => {
         if (err) return next(new Error('Authentication error'));
         socket.user = decoded;
         next();
@@ -102,7 +94,7 @@ const authenticateToken = (req, res, next) => {
         return res.status(401).json({ error: 'Authentication required' });
     }
 
-    jwt.verify(token, '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb', (err, user) => {
+    jwt.verify(token, process.env.JWT_SECRET || '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb', (err, user) => {
         if (err) {
             return res.status(403).json({ error: 'Invalid token' });
         }
@@ -117,7 +109,7 @@ app.post('/api/upload', authenticateToken, upload.single('image'), async (req, r
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });
         }
-        const imageUrl = `https://campuscubee.onrender.com/uploads/${req.file.filename}`;
+        const imageUrl = `http://localhost:5001/uploads/${req.file.filename}`;
         res.json({ url: imageUrl });
     } catch (error) {
         console.error('Upload error:', error);
@@ -199,7 +191,7 @@ app.post('/api/register', async (req, res) => {
 
         const token = jwt.sign(
             { id: user._id, username, email },
-            '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb',
+            process.env.JWT_SECRET || '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb',
             { expiresIn: '1h' }
         );
         
@@ -222,7 +214,7 @@ app.post('/api/login', async (req, res) => {
 
         const token = jwt.sign(
             { id: user._id, username: user.username, email },
-            '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb',
+            process.env.JWT_SECRET || '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb',
             { expiresIn: '1h' }
         );
 
@@ -233,20 +225,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// Get messages endpoint
-app.get('/api/messages', async (req, res) => {
-    try {
-        const messages = await Message.find()
-            .sort({ timestamp: -1 })
-            .limit(150);
-        res.json(messages.reverse());
-    } catch (error) {
-        console.error('Error fetching messages:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5001;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });

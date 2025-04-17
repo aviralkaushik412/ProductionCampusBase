@@ -1,12 +1,8 @@
 // src/components/Register.jsx
 import { useState } from 'react';
 import './styles/Auth.css';
-import { Link, useNavigate } from "react-router-dom";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 
 function Register({ onRegister, onSwitchToLogin }) {
-    const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -19,45 +15,32 @@ function Register({ onRegister, onSwitchToLogin }) {
         setError('');
 
         if (password !== confirmPassword) {
-            const errorMsg = 'Passwords do not match';
-            setError(errorMsg);
-            toast.error(errorMsg);
+            setError('Passwords do not match');
             return;
         }
 
         setIsLoading(true);
 
         try {
-            const response = await fetch('https://campuscubee.onrender.com/api/register', {
+            const response = await fetch('http://localhost:5001/api/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json'
                 },
-                credentials: 'include',
                 body: JSON.stringify({ email, username, password }),
             });
 
             const data = await response.json();
 
             if (response.ok) {
-                toast.success('Registration successful! Please login.');
-                navigate('/login');
+                localStorage.setItem('token', data.token);
+                onRegister(data.username);
             } else {
-                const errorMessage = data.error || data.message || 'Registration failed';
-                toast.error(errorMessage);
-                setError(errorMessage);
+                setError(data.error || 'Registration failed');
             }
-        } catch (error) {
-            console.error('Registration error:', error);
-            let errorMessage = 'An error occurred during registration.';
-            
-            if (error.message === 'Failed to fetch') {
-                errorMessage = 'Unable to connect to the server. Please check your internet connection or try again later.';
-            }
-            
-            toast.error(errorMessage);
-            setError(errorMessage);
+        } catch (err) {
+            console.error('Registration error:', err);
+            setError('Failed to connect to server');
         } finally {
             setIsLoading(false);
         }
@@ -121,13 +104,9 @@ function Register({ onRegister, onSwitchToLogin }) {
                 </button>
                 <div className="auth-switch">
                     Already have an account?{' '}
-                    <a href="#" onClick={(e) => {
-                        e.preventDefault();
-                        onSwitchToLogin();
-                    }}>Login</a>
+                    <a href="#" onClick={onSwitchToLogin}>Login</a>
                 </div>
             </form>
-            <ToastContainer />
         </div>
     );
 }
