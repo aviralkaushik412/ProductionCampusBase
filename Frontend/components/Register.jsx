@@ -1,8 +1,12 @@
 // src/components/Register.jsx
 import { useState } from 'react';
 import './styles/Auth.css';
+import { Link, useNavigate } from "react-router-dom";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 function Register({ onRegister, onSwitchToLogin }) {
+    const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -24,7 +28,7 @@ function Register({ onRegister, onSwitchToLogin }) {
 
         try {
             console.log('Sending registration request to server...');
-            const response = await fetch('http://localhost:5001/api/register', {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -45,6 +49,8 @@ function Register({ onRegister, onSwitchToLogin }) {
             console.log('Registration successful, setting token and username...');
             localStorage.setItem('token', data.token);
             onRegister(data.username);
+            toast.success("Registration successful! Please login.");
+            navigate("/login");
         } catch (err) {
             console.error('Registration error:', err);
             if (err.message === 'Failed to fetch') {
@@ -52,6 +58,7 @@ function Register({ onRegister, onSwitchToLogin }) {
             } else {
                 setError(err.message);
             }
+            toast.error("Failed to connect to the server. Please try again later.");
         } finally {
             setIsLoading(false);
         }
@@ -121,6 +128,7 @@ function Register({ onRegister, onSwitchToLogin }) {
                     }}>Login</a>
                 </div>
             </form>
+            <ToastContainer />
         </div>
     );
 }

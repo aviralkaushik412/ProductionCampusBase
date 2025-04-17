@@ -1,8 +1,12 @@
 // src/components/Login.jsx
 import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import './styles/Auth.css';
 
-function Login({ onLogin, onSwitchToRegister }) {
+const Login = ({ onLogin, onSwitchToRegister }) => {
+    const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -14,24 +18,26 @@ function Login({ onLogin, onSwitchToRegister }) {
         setIsLoading(true);
 
         try {
-            const response = await fetch('http://localhost:5001/api/login', {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ email, password }),
+                credentials: 'include',
             });
 
             const data = await response.json();
 
-            if (!response.ok) {
-                throw new Error(data.error || 'Login failed');
+            if (response.ok) {
+                toast.success('Login successful!');
+                navigate('/dashboard');
+            } else {
+                toast.error(data.message || 'Login failed');
             }
-
-            localStorage.setItem('token', data.token);
-            onLogin(data.username);
-        } catch (err) {
-            setError(err.message);
+        } catch (error) {
+            console.error('Login error:', error);
+            toast.error('Failed to connect to the server. Please try again later.');
         } finally {
             setIsLoading(false);
         }

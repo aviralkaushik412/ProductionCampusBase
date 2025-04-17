@@ -49,10 +49,21 @@ const upload = multer({
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-const allowedOrigins = ["http://localhost:5173", "http://localhost:5174"];
+// Parse ALLOWED_ORIGINS from environment variable or use default values
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+    ? process.env.ALLOWED_ORIGINS.split(',')
+    : ["http://localhost:5173", "http://localhost:5174"];
 
 app.use(cors({
-    origin: allowedOrigins,
+    origin: function(origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) === -1) {
+            return callback(new Error('CORS not allowed'), false);
+        }
+        return callback(null, true);
+    },
     methods: ['GET', 'POST'],
     credentials: true
 }));
@@ -61,7 +72,13 @@ app.use(express.json());
 
 const io = new Server(server, {
     cors: {
-        origin: allowedOrigins,
+        origin: function(origin, callback) {
+            if (!origin) return callback(null, true);
+            if (allowedOrigins.indexOf(origin) === -1) {
+                return callback(new Error('CORS not allowed'), false);
+            }
+            return callback(null, true);
+        },
         methods: ["GET", "POST"],
         credentials: true
     }
@@ -118,14 +135,16 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// Image upload endpoint
+// Update image upload URL to use environment variables
 app.post('/api/upload', authenticateToken, upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
-        const imageUrl = `http://localhost:${process.env.PORT}/uploads/${req.file.filename}`;
+        // Use the backend URL from environment variable or fallback to localhost
+        const baseUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT}`;
+        const imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
         res.json({ url: imageUrl });
     } catch (error) {
         console.error('Upload error:', error);
