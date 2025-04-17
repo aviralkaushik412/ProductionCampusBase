@@ -28,8 +28,7 @@ function Register({ onRegister, onSwitchToLogin }) {
         setIsLoading(true);
 
         try {
-            console.log('Attempting to connect to:', import.meta.env.VITE_BACKEND_URL);
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/register`, {
+            const response = await fetch('https://campuscubee.onrender.com/api/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -40,7 +39,6 @@ function Register({ onRegister, onSwitchToLogin }) {
             });
 
             const data = await response.json();
-            console.log('Server response:', data);
 
             if (response.ok) {
                 toast.success('Registration successful! Please login.');

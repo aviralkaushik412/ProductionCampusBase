@@ -49,61 +49,42 @@ const upload = multer({
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Parse ALLOWED_ORIGINS from environment variable or use default values
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
-    ? process.env.ALLOWED_ORIGINS.split(',')
-    : ["https://campuscubee.netlify.app"];
-
+// CORS configuration
 app.use(cors({
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true
+    origin: ['https://campuscubee.netlify.app', 'http://localhost:5173'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 app.use(express.json());
 
+// Socket.IO configuration
 const io = new Server(server, {
     cors: {
-        origin: function(origin, callback) {
-            if (!origin) return callback(null, true);
-            if (allowedOrigins.indexOf(origin) === -1) {
-                return callback(new Error('CORS not allowed'), false);
-            }
-            return callback(null, true);
-        },
+        origin: ['https://campuscubee.netlify.app', 'http://localhost:5173'],
         methods: ["GET", "POST"],
-        credentials: true
+        credentials: true,
+        allowedHeaders: ['Content-Type', 'Authorization']
     }
 });
 
-mongoose.connect(process.env.MONGO_URI + 'chatapp')
+// MongoDB connection
+mongoose.connect('mongodb+srv://harsh:harsh@cluster0.vnoisag.mongodb.net/chatapp')
 .then(() => {
     console.log('✅ MongoDB connected successfully');
-    console.log('MongoDB URI:', process.env.MONGO_URI + 'chatapp');
 })
 .catch(err => {
     console.error('❌ MongoDB connection error:', err);
     process.exit(1);
 });
 
-mongoose.connection.on('error', err => {
-    console.error('MongoDB connection error:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-    console.log('MongoDB disconnected');
-});
-
+// Socket authentication middleware
 const authenticateSocket = (socket, next) => {
     const token = socket.handshake.auth.token;
     if (!token) return next(new Error('Authentication error'));
 
-    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    jwt.verify(token, '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb', (err, decoded) => {
         if (err) return next(new Error('Authentication error'));
         socket.user = decoded;
         next();
@@ -112,7 +93,7 @@ const authenticateSocket = (socket, next) => {
 
 io.use(authenticateSocket);
 
-// Add authentication middleware for protected routes
+// Authentication middleware for protected routes
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -121,7 +102,7 @@ const authenticateToken = (req, res, next) => {
         return res.status(401).json({ error: 'Authentication required' });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    jwt.verify(token, '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb', (err, user) => {
         if (err) {
             return res.status(403).json({ error: 'Invalid token' });
         }
@@ -130,16 +111,13 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// Update image upload URL to use environment variables
+// Image upload endpoint
 app.post('/api/upload', authenticateToken, upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });
         }
-
-        // Use the backend URL from environment variable or fallback to localhost
-        const baseUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT}`;
-        const imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
+        const imageUrl = `https://campuscubee.onrender.com/uploads/${req.file.filename}`;
         res.json({ url: imageUrl });
     } catch (error) {
         console.error('Upload error:', error);
@@ -167,7 +145,6 @@ io.on('connection', (socket) => {
     // Handle new messages
     socket.on('chat message', async (messageData) => {
         try {
-            // Create new message with the authenticated user's username
             const message = new Message({
                 text: messageData.text,
                 username: socket.user.username,
@@ -176,10 +153,8 @@ io.on('connection', (socket) => {
                 url: messageData.url
             });
             
-            // Save to database
             const savedMessage = await message.save();
             
-            // Broadcast to all clients including sender
             io.emit('chat message', {
                 _id: savedMessage._id,
                 text: savedMessage.text,
@@ -188,8 +163,6 @@ io.on('connection', (socket) => {
                 type: savedMessage.type,
                 url: savedMessage.url
             });
-            
-            console.log(`Message from ${socket.user.username}: ${messageData.text}`);
         } catch (error) {
             console.error('Error saving message:', error);
             socket.emit('error', { message: 'Error sending message' });
@@ -203,6 +176,7 @@ io.on('connection', (socket) => {
     });
 });
 
+// Register endpoint
 app.post('/api/register', async (req, res) => {
     try {
         const { email, username, password } = req.body;
@@ -220,64 +194,46 @@ app.post('/api/register', async (req, res) => {
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-
         const user = new User({ email, username, password: hashedPassword });
         await user.save();
- 
-        if (!process.env.JWT_SECRET) {
-            throw new Error('JWT_SECRET is not defined');
-        }
 
-        const token = jwt.sign({ id: user._id, username, email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const token = jwt.sign(
+            { id: user._id, username, email },
+            '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb',
+            { expiresIn: '1h' }
+        );
+        
         res.status(201).json({ message: 'User registered', token, username });
     } catch (error) {
-        if (error.code === 11000) {
-            const field = Object.keys(error.keyValue)[0];
-            return res.status(400).json({ error: `${field.charAt(0).toUpperCase() + field.slice(1)} already exists` });
-        }
+        console.error('Registration error:', error);
         res.status(500).json({ error: 'Server error during registration' });
     }
 });
 
-// Add logging middleware for all requests
-app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-    next();
-});
-
-// Update login endpoint with more logging
+// Login endpoint
 app.post('/api/login', async (req, res) => {
     try {
-        console.log('Login attempt for email:', req.body.email);
         const { email, password } = req.body;
-
         const user = await User.findOne({ email });
-        if (!user) {
-            console.log('User not found:', email);
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
 
-        const isValidPassword = await bcrypt.compare(password, user.password);
-        if (!isValidPassword) {
-            console.log('Invalid password for user:', email);
+        if (!user || !await bcrypt.compare(password, user.password)) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
         const token = jwt.sign(
             { id: user._id, username: user.username, email },
-            process.env.JWT_SECRET,
+            '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb',
             { expiresIn: '1h' }
         );
 
-        console.log('Login successful for user:', user.username);
         res.json({ token, username: user.username });
-
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
 
+// Get messages endpoint
 app.get('/api/messages', async (req, res) => {
     try {
         const messages = await Message.find()
@@ -285,12 +241,12 @@ app.get('/api/messages', async (req, res) => {
             .limit(150);
         res.json(messages.reverse());
     } catch (error) {
+        console.error('Error fetching messages:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
 
 const PORT = process.env.PORT || 3000;
-
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });

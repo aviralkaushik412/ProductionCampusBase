@@ -18,14 +18,15 @@ const Login = ({ onLogin, onSwitchToRegister }) => {
         setIsLoading(true);
 
         try {
-            console.log('Attempting to connect to:', import.meta.env.VITE_BACKEND_URL);
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/login`, {
+            const response = await fetch('https://campuscubee.onrender.com/api/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify({ email, password }),
                 credentials: 'include',
+                mode: 'cors'
             });
 
             const data = await response.json();
