@@ -51,8 +51,23 @@ const upload = multer({
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // CORS configuration
+const allowedOrigins = [
+    'http://localhost:5173', 
+    'http://127.0.0.1:5173',
+    process.env.FRONTEND_URL || 'https://your-netlify-app.netlify.app'
+];
+
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: function(origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) === -1) {
+            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+            return callback(new Error(msg), false);
+        }
+        return callback(null, true);
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true
 }));
@@ -62,7 +77,7 @@ app.use(express.json());
 // Socket.IO setup
 const io = new Server(server, {
     cors: {
-        origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+        origin: allowedOrigins,
         methods: ["GET", "POST"],
         credentials: true
     }
@@ -74,7 +89,9 @@ app.get('/', (req, res) => {
 });
 
 // MongoDB connection
-mongoose.connect('mongodb+srv://harsh:harsh@cluster0.vnoisag.mongodb.net/chatapp')
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://harsh:harsh@cluster0.vnoisag.mongodb.net/chatapp';
+
+mongoose.connect(MONGODB_URI)
 .then(() => {
     console.log('✅ MongoDB connected successfully');
 })
@@ -88,7 +105,7 @@ const authenticateSocket = (socket, next) => {
     const token = socket.handshake.auth.token;
     if (!token) return next(new Error('Authentication error'));
 
-    jwt.verify(token, '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb', (err, decoded) => {
+    jwt.verify(token, process.env.JWT_SECRET || '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb', (err, decoded) => {
         if (err) return next(new Error('Authentication error'));
         socket.user = decoded;
         next();
@@ -106,7 +123,7 @@ const authenticateToken = (req, res, next) => {
         return res.status(401).json({ error: 'Authentication required' });
     }
 
-    jwt.verify(token, '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb', (err, user) => {
+    jwt.verify(token, process.env.JWT_SECRET || '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb', (err, user) => {
         if (err) {
             return res.status(403).json({ error: 'Invalid token' });
         }
@@ -212,7 +229,7 @@ app.post('/api/register', async (req, res) => {
 
         const token = jwt.sign(
             { id: user._id, username, email },
-            '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb',
+            process.env.JWT_SECRET || '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb',
             { expiresIn: '1h' }
         );
         
@@ -235,7 +252,7 @@ app.post('/api/login', async (req, res) => {
 
         const token = jwt.sign(
             { id: user._id, username: user.username, email },
-            '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb',
+            process.env.JWT_SECRET || '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb',
             { expiresIn: '1h' }
         );
 
@@ -243,6 +260,23 @@ app.post('/api/login', async (req, res) => {
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Image upload endpoint
+app.post('/api/upload', authenticateToken, upload.single('image'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+        
+        res.json({ 
+            message: 'File uploaded successfully',
+            url: `uploads/${req.file.filename}`
+        });
+    } catch (error) {
+        console.error('Upload error:', error);
+        res.status(500).json({ error: 'Error uploading file' });
     }
 });
 
