@@ -29,7 +29,7 @@ function Login({ onLogin, onSwitchToRegister }) {
             if (response.ok) {
                 localStorage.setItem('token', data.token);
                 onLogin(data.username);
-                navigate('/dashboard');
+                navigate('/chat');
             } else {
                 setError(data.error || 'Login failed');
             }

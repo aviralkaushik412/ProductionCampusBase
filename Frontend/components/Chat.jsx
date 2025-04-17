@@ -2,9 +2,10 @@
 import { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import './styles/Chat.css';
-import { FaVideo, FaPhone, FaEllipsisV, FaPaperclip, FaSmile, FaMicrophone, FaSearch, FaFilter, FaCheck, FaCheckDouble, FaArrowRight } from 'react-icons/fa';
+import { FaEllipsisV, FaPaperclip, FaSmile, FaMicrophone, FaSearch, FaFilter, FaCheck, FaCheckDouble, FaArrowRight, FaExclamationTriangle } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 
-const BACKEND_URL = 'https://campuscubee.onrender.com';
+const BACKEND_URL = 'http://localhost:5001';
 
 let socket;
 
@@ -16,8 +17,8 @@ function Chat({ username, onLogout }) {
     const messagesEndRef = useRef(null);
     const [isTyping, setIsTyping] = useState(false);
     const fileInputRef = useRef(null);
-    const [selectedChat, setSelectedChat] = useState(null);
-    const [menuOpen, setMenuOpen] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [showWarning, setShowWarning] = useState(false);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -63,6 +64,15 @@ function Chat({ username, onLogout }) {
 
         socket.on('error', (error) => {
             console.error('Socket error:', error);
+            if (error.message === 'Message contains inappropriate content') {
+                setInput(''); // Clear the input if it contains bad words
+                setShowWarning(true); // Show warning screen
+                setTimeout(() => {
+                    setShowWarning(false); // Hide warning after 4.5 seconds
+                }, 4500);
+            } else {
+                toast.error(error.message || 'An error occurred');
+            }
         });
 
         // Cleanup on unmount
@@ -102,17 +112,18 @@ function Chat({ username, onLogout }) {
 
         // Only allow images
         if (!file.type.startsWith('image/')) {
-            alert('Please upload only image files.');
+            toast.error('Please upload only image files');
             return;
         }
 
         // Max size 5MB
         if (file.size > 5 * 1024 * 1024) {
-            alert('Please upload images smaller than 5MB.');
+            toast.error('Please upload images smaller than 5MB');
             return;
         }
 
         try {
+            setIsUploading(true);
             const formData = new FormData();
             formData.append('image', file);
 
@@ -134,12 +145,20 @@ function Chat({ username, onLogout }) {
             // Send message with image URL
             socket.emit('chat message', {
                 type: 'image',
-                url: data.url,
+                url: `${BACKEND_URL}/${data.url}`,
                 text: 'Sent an image'
             });
+
+            toast.success('Image sent successfully');
         } catch (error) {
             console.error('Error uploading image:', error);
-            alert('Failed to upload image. Please try again.');
+            toast.error('Failed to upload image. Please try again.');
+        } finally {
+            setIsUploading(false);
+            // Clear the file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
         }
     };
 
@@ -162,6 +181,16 @@ function Chat({ username, onLogout }) {
 
     return (
         <div className="whatsapp-container">
+            {showWarning && (
+                <div className="warning-overlay">
+                    <div className="warning-content">
+                        <FaExclamationTriangle className="warning-icon" />
+                        <h2>Warning!</h2>
+                        <p>Your message contains inappropriate content.</p>
+                        <p>Please be mindful of the community guidelines.</p>
+                    </div>
+                </div>
+            )}
             {/* Sidebar */}
             <div className="sidebar">
                 <div className="sidebar-header">
@@ -211,9 +240,7 @@ function Chat({ username, onLogout }) {
                     </div>
                     <div className="chat-header-icons">
                         <button className="icon-button"><FaSearch /></button>
-                        <button className="icon-button"><FaVideo /></button>
-                        <button className="icon-button"><FaPhone /></button>
-                        <button className="icon-button" onClick={() => setMenuOpen(!menuOpen)}><FaEllipsisV /></button>
+                        <button className="icon-button"><FaEllipsisV /></button>
                     </div>
                 </div>
 
@@ -254,6 +281,7 @@ function Chat({ username, onLogout }) {
                         type="button" 
                         className="icon-button"
                         onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
                     >
                         <FaPaperclip />
                     </button>

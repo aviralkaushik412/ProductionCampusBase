@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { filterBadWords } = require('./utils/badwords');
 
 require('dotenv').config();
 
@@ -50,15 +51,26 @@ const upload = multer({
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // CORS configuration
-app.use(cors());
+app.use(cors({
+    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true
+}));
+
 app.use(express.json());
 
 // Socket.IO setup
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:5173",
-        methods: ["GET", "POST"]
+        origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+        methods: ["GET", "POST"],
+        credentials: true
     }
+});
+
+// Test route
+app.get('/', (req, res) => {
+    res.json({ message: 'Server is running!' });
 });
 
 // MongoDB connection
@@ -76,7 +88,7 @@ const authenticateSocket = (socket, next) => {
     const token = socket.handshake.auth.token;
     if (!token) return next(new Error('Authentication error'));
 
-    jwt.verify(token, process.env.JWT_SECRET || '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb', (err, decoded) => {
+    jwt.verify(token, '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb', (err, decoded) => {
         if (err) return next(new Error('Authentication error'));
         socket.user = decoded;
         next();
@@ -94,7 +106,7 @@ const authenticateToken = (req, res, next) => {
         return res.status(401).json({ error: 'Authentication required' });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET || '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb', (err, user) => {
+    jwt.verify(token, '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb', (err, user) => {
         if (err) {
             return res.status(403).json({ error: 'Invalid token' });
         }
@@ -103,28 +115,31 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// Image upload endpoint
-app.post('/api/upload', authenticateToken, upload.single('image'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No file uploaded' });
-        }
-        const imageUrl = `http://localhost:5001/uploads/${req.file.filename}`;
-        res.json({ url: imageUrl });
-    } catch (error) {
-        console.error('Upload error:', error);
-        res.status(500).json({ error: 'Error uploading file' });
-    }
-});
-
-// Track connected users
-let connectedUsers = new Set();
+// Track connected users with their socket IDs
+let connectedUsers = new Map();
 
 io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.user.username}`);
-    connectedUsers.add(socket.user.username);
-    io.emit('active users', connectedUsers.size);
-    
+    console.log('User connected:', socket.id);
+
+    // Handle user disconnection
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+        io.emit('active users', io.engine.clientsCount);
+    });
+
+    // Handle video call events
+    socket.on('callUser', ({ userToCall, signalData, from, name }) => {
+        io.to(userToCall).emit('callReceived', { signal: signalData, from, name });
+    });
+
+    socket.on('answerCall', (data) => {
+        io.to(data.to).emit('callAccepted', data.signal);
+    });
+
+    socket.on('endCall', (data) => {
+        io.to(data.to).emit('callEnded');
+    });
+
     // Load existing messages
     Message.find()
         .sort({ timestamp: -1 })
@@ -137,6 +152,15 @@ io.on('connection', (socket) => {
     // Handle new messages
     socket.on('chat message', async (messageData) => {
         try {
+            // Check for bad words in text messages
+            if (messageData.type === 'text') {
+                const { containsBadWord } = filterBadWords(messageData.text);
+                if (containsBadWord) {
+                    socket.emit('error', { message: 'Message contains inappropriate content' });
+                    return;
+                }
+            }
+
             const message = new Message({
                 text: messageData.text,
                 username: socket.user.username,
@@ -161,11 +185,8 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('disconnect', () => {
-        console.log(`User disconnected: ${socket.user.username}`);
-        connectedUsers.delete(socket.user.username);
-        io.emit('active users', connectedUsers.size);
-    });
+    connectedUsers.set(socket.user.username, socket.id);
+    io.emit('active users', connectedUsers.size);
 });
 
 // Register endpoint
@@ -191,7 +212,7 @@ app.post('/api/register', async (req, res) => {
 
         const token = jwt.sign(
             { id: user._id, username, email },
-            process.env.JWT_SECRET || '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb',
+            '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb',
             { expiresIn: '1h' }
         );
         
@@ -214,7 +235,7 @@ app.post('/api/login', async (req, res) => {
 
         const token = jwt.sign(
             { id: user._id, username: user.username, email },
-            process.env.JWT_SECRET || '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb',
+            '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb',
             { expiresIn: '1h' }
         );
 
@@ -226,6 +247,6 @@ app.post('/api/login', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5001;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
 });
