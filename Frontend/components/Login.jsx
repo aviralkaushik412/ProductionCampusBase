@@ -18,6 +18,7 @@ const Login = ({ onLogin, onSwitchToRegister }) => {
         setIsLoading(true);
 
         try {
+            console.log('Attempting to connect to:', import.meta.env.VITE_BACKEND_URL);
             const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/login`, {
                 method: 'POST',
                 headers: {
@@ -33,11 +34,20 @@ const Login = ({ onLogin, onSwitchToRegister }) => {
                 toast.success('Login successful!');
                 navigate('/dashboard');
             } else {
-                toast.error(data.message || 'Login failed');
+                const errorMessage = data.message || 'Login failed';
+                toast.error(errorMessage);
+                setError(errorMessage);
             }
         } catch (error) {
             console.error('Login error:', error);
-            toast.error('Failed to connect to the server. Please try again later.');
+            let errorMessage = 'An error occurred during login.';
+            
+            if (error.message === 'Failed to fetch') {
+                errorMessage = 'Unable to connect to the server. Please check your internet connection or try again later.';
+            }
+            
+            toast.error(errorMessage);
+            setError(errorMessage);
         } finally {
             setIsLoading(false);
         }

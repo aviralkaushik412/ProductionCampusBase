@@ -52,19 +52,16 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Parse ALLOWED_ORIGINS from environment variable or use default values
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
     ? process.env.ALLOWED_ORIGINS.split(',')
-    : ["http://localhost:5173", "http://localhost:5174"];
+    : ["https://campuscubee.netlify.app"];
 
 app.use(cors({
-    origin: function(origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
-        
-        if (allowedOrigins.indexOf(origin) === -1) {
-            return callback(new Error('CORS not allowed'), false);
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
         }
-        return callback(null, true);
     },
-    methods: ['GET', 'POST'],
     credentials: true
 }));
 
@@ -84,16 +81,14 @@ const io = new Server(server, {
     }
 });
 
-mongoose.connect(process.env.MONGO_URI + 'chatapp', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-})
+mongoose.connect(process.env.MONGO_URI + 'chatapp')
 .then(() => {
     console.log('✅ MongoDB connected successfully');
+    console.log('MongoDB URI:', process.env.MONGO_URI + 'chatapp');
 })
 .catch(err => {
     console.error('❌ MongoDB connection error:', err);
-    process.exit(1); // Exit if MongoDB connection fails
+    process.exit(1);
 });
 
 mongoose.connection.on('error', err => {
@@ -244,23 +239,41 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
+// Add logging middleware for all requests
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    next();
+});
+
+// Update login endpoint with more logging
 app.post('/api/login', async (req, res) => {
     try {
+        console.log('Login attempt for email:', req.body.email);
         const { email, password } = req.body;
 
         const user = await User.findOne({ email });
-
-        if (!user || !await bcrypt.compare(password, user.password)) {
-
+        if (!user) {
+            console.log('User not found:', email);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        const token = jwt.sign({ id: user._id, username: user.username, email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const isValidPassword = await bcrypt.compare(password, user.password);
+        if (!isValidPassword) {
+            console.log('Invalid password for user:', email);
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
 
+        const token = jwt.sign(
+            { id: user._id, username: user.username, email },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+        console.log('Login successful for user:', user.username);
         res.json({ token, username: user.username });
 
     } catch (error) {
-
+        console.error('Login error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -276,7 +289,7 @@ app.get('/api/messages', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

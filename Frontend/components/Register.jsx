@@ -17,17 +17,18 @@ function Register({ onRegister, onSwitchToLogin }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        console.log('Starting registration process...');
 
         if (password !== confirmPassword) {
-            setError('Passwords do not match');
+            const errorMsg = 'Passwords do not match';
+            setError(errorMsg);
+            toast.error(errorMsg);
             return;
         }
 
         setIsLoading(true);
 
         try {
-            console.log('Sending registration request to server...');
+            console.log('Attempting to connect to:', import.meta.env.VITE_BACKEND_URL);
             const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/register`, {
                 method: 'POST',
                 headers: {
@@ -38,27 +39,27 @@ function Register({ onRegister, onSwitchToLogin }) {
                 body: JSON.stringify({ email, username, password }),
             });
 
-            console.log('Server response status:', response.status);
             const data = await response.json();
-            console.log('Server response data:', data);
+            console.log('Server response:', data);
 
-            if (!response.ok) {
-                throw new Error(data.error || 'Registration failed');
-            }
-
-            console.log('Registration successful, setting token and username...');
-            localStorage.setItem('token', data.token);
-            onRegister(data.username);
-            toast.success("Registration successful! Please login.");
-            navigate("/login");
-        } catch (err) {
-            console.error('Registration error:', err);
-            if (err.message === 'Failed to fetch') {
-                setError('Cannot connect to server. Please check if the server is running.');
+            if (response.ok) {
+                toast.success('Registration successful! Please login.');
+                navigate('/login');
             } else {
-                setError(err.message);
+                const errorMessage = data.error || data.message || 'Registration failed';
+                toast.error(errorMessage);
+                setError(errorMessage);
             }
-            toast.error("Failed to connect to the server. Please try again later.");
+        } catch (error) {
+            console.error('Registration error:', error);
+            let errorMessage = 'An error occurred during registration.';
+            
+            if (error.message === 'Failed to fetch') {
+                errorMessage = 'Unable to connect to the server. Please check your internet connection or try again later.';
+            }
+            
+            toast.error(errorMessage);
+            setError(errorMessage);
         } finally {
             setIsLoading(false);
         }

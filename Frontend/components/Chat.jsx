@@ -4,7 +4,7 @@ import io from 'socket.io-client';
 import './styles/Chat.css';
 import { FaVideo, FaPhone, FaEllipsisV, FaPaperclip, FaSmile, FaMicrophone, FaSearch, FaFilter, FaCheck, FaCheckDouble, FaArrowRight } from 'react-icons/fa';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 let socket;
 
