@@ -1,0 +1,127 @@
+.theme-selector-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.theme-selector-content {
+    background-color: #1f2c33;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+    animation: slideUp 0.3s ease;
+}
+
+.theme-selector-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #374045;
+    position: sticky;
+    top: 0;
+    background-color: #1f2c33;
+    z-index: 1;
+}
+
+.theme-selector-header h2 {
+    color: #e9edef;
+    margin: 0;
+    font-size: 19px;
+    font-weight: 500;
+}
+
+.close-button {
+    background: none;
+    border: none;
+    color: #8696a0;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 50%;
+    line-height: 1;
+}
+
+.close-button:hover {
+    background-color: #374045;
+}
+
+.theme-loading, .theme-error, .theme-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: #8696a0;
+    font-size: 15px;
+}
+
+.theme-error {
+    color: #ef5350;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.retry-button {
+    background-color: #00a884;
+    color: #1f2c33;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+}
+
+.retry-button:hover {
+    background-color: #008f72;
+}
+
+.theme-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 16px;
+    padding: 20px;
+}
+
+.theme-item {
+    aspect-ratio: 16/9;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+    position: relative;
+}
+
+.theme-item:hover {
+    transform: scale(1.05);
+    border-color: #00a884;
+}
+
+.theme-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+} 

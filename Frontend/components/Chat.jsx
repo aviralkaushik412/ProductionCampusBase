@@ -2,8 +2,10 @@
 import { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import './styles/Chat.css';
-import { FaEllipsisV, FaPaperclip, FaSmile, FaMicrophone, FaSearch, FaFilter, FaCheck, FaCheckDouble, FaArrowRight, FaExclamationTriangle } from 'react-icons/fa';
+import { FaEllipsisV, FaPaperclip, FaSmile, FaMicrophone, FaSearch, FaFilter, FaCheck, FaCheckDouble, FaArrowRight, FaExclamationTriangle, FaCog, FaCamera, FaPencilAlt } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import Settings from './Settings';
+import ThemeSelector from './ThemeSelector';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001';
 
@@ -19,6 +21,14 @@ function Chat({ username, onLogout }) {
     const fileInputRef = useRef(null);
     const [isUploading, setIsUploading] = useState(false);
     const [showWarning, setShowWarning] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
+    const [showGroupMenu, setShowGroupMenu] = useState(false);
+    const [groupName, setGroupName] = useState('Group Chat');
+    const [groupIcon, setGroupIcon] = useState('https://api.dicebear.com/7.x/initials/svg?seed=Group');
+    const groupIconInputRef = useRef(null);
+    const [showThemeSelector, setShowThemeSelector] = useState(false);
+    const [currentTheme, setCurrentTheme] = useState(null);
+    const [showMenu, setShowMenu] = useState(false);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -179,8 +189,158 @@ function Chat({ username, onLogout }) {
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
+    const handleGroupNameChange = async (newName) => {
+        try {
+            const response = await fetch(`${BACKEND_URL}/api/group/name`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ name: newName })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update group name');
+            }
+
+            setGroupName(newName);
+            socket.emit('group update', { type: 'name', name: newName });
+            toast.success('Group name updated successfully');
+        } catch (error) {
+            console.error('Error updating group name:', error);
+            toast.error('Failed to update group name');
+        }
+    };
+
+    const handleGroupIconChange = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please upload only image files');
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('Please upload images smaller than 5MB');
+            return;
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append('icon', file);
+
+            const response = await fetch(`${BACKEND_URL}/api/group/icon`, {
+                method: 'PUT',
+                body: formData,
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update group icon');
+            }
+
+            const data = await response.json();
+            const newIconUrl = `${BACKEND_URL}/${data.url}`;
+            setGroupIcon(newIconUrl);
+            socket.emit('group update', { type: 'icon', url: newIconUrl });
+            toast.success('Group icon updated successfully');
+        } catch (error) {
+            console.error('Error updating group icon:', error);
+            toast.error('Failed to update group icon');
+        }
+    };
+
+    useEffect(() => {
+        socket.on('group update', (update) => {
+            if (update.type === 'name') {
+                setGroupName(update.name);
+            } else if (update.type === 'icon') {
+                setGroupIcon(update.url);
+            }
+        });
+
+        return () => {
+            socket.off('group update');
+        };
+    }, []);
+
+    useEffect(() => {
+        // Fetch current theme from server
+        fetch(`${BACKEND_URL}/api/themes/current`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.theme) {
+                    setCurrentTheme(data.theme);
+                }
+            })
+            .catch(err => console.error('Error fetching current theme:', err));
+
+        socket.on('theme update', (theme) => {
+            setCurrentTheme(theme);
+        });
+
+        return () => {
+            socket.off('theme update');
+        };
+    }, []);
+
+    const handleThemeSelect = async (themePath) => {
+        try {
+            const response = await fetch(`${BACKEND_URL}/api/themes/current`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ theme: themePath })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update theme');
+            }
+
+            const data = await response.json();
+            setCurrentTheme(themePath);
+            socket.emit('theme update', themePath);
+            setShowThemeSelector(false);
+            toast.success('Chat background updated successfully');
+        } catch (error) {
+            console.error('Error updating theme:', error);
+            toast.error('Failed to update chat background');
+        }
+    };
+
+    // Add click outside handler for menu
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (showMenu && !event.target.closest('.menu-container')) {
+                setShowMenu(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showMenu]);
+
     return (
         <div className="whatsapp-container">
+            {showSettings && (
+                <Settings 
+                    onClose={() => setShowSettings(false)}
+                    username={username}
+                    role="Cargo"
+                />
+            )}
             {showWarning && (
                 <div className="warning-overlay">
                     <div className="warning-content">
@@ -190,6 +350,15 @@ function Chat({ username, onLogout }) {
                         <p>Please be mindful of the community guidelines.</p>
                     </div>
                 </div>
+            )}
+            {showThemeSelector && (
+                <ThemeSelector
+                    onClose={() => setShowThemeSelector(false)}
+                    onSelectTheme={(theme) => {
+                        handleThemeSelect(theme);
+                        setShowThemeSelector(false);
+                    }}
+                />
             )}
             {/* Sidebar */}
             <div className="sidebar">
@@ -224,27 +393,81 @@ function Chat({ username, onLogout }) {
                         </div>
                     </div>
                 </div>
+                <div className="sidebar-footer">
+                    <button className="settings-button" onClick={() => setShowSettings(true)}>
+                        <FaCog />
+                        <span>Settings</span>
+                    </button>
+                </div>
             </div>
 
             {/* Main Chat Area */}
             <div className="chat-area">
                 <div className="chat-header">
                     <div className="chat-header-info">
-                        <div className="chat-avatar">
-                            <img src="https://api.dicebear.com/7.x/initials/svg?seed=Group" alt="Group Chat" />
+                        <div className="chat-avatar" onClick={() => groupIconInputRef.current?.click()}>
+                            <img src={groupIcon} alt="Group Chat" />
+                            <div className="avatar-overlay">
+                                <FaCamera />
+                            </div>
                         </div>
+                        <input
+                            type="file"
+                            ref={groupIconInputRef}
+                            onChange={handleGroupIconChange}
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                        />
                         <div className="chat-details">
-                            <div className="chat-name">Group Chat</div>
+                            <div className="chat-name-container">
+                                <span className="chat-name">{groupName}</span>
+                                <button className="edit-name-button" onClick={() => {
+                                    const newName = prompt('Enter new group name:', groupName);
+                                    if (newName && newName.trim() !== '' && newName !== groupName) {
+                                        handleGroupNameChange(newName.trim());
+                                    }
+                                }}>
+                                    <FaPencilAlt />
+                                </button>
+                            </div>
                             <div className="chat-status">{activeUsers} participants • {isConnected ? 'online' : 'connecting...'}</div>
                         </div>
                     </div>
                     <div className="chat-header-icons">
                         <button className="icon-button"><FaSearch /></button>
-                        <button className="icon-button"><FaEllipsisV /></button>
+                        <div className="menu-container">
+                            <button 
+                                className="icon-button" 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowMenu(!showMenu);
+                                }}
+                            >
+                                <FaEllipsisV />
+                            </button>
+                            {showMenu && (
+                                <div className="menu-dropdown">
+                                    <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowThemeSelector(true);
+                                            setShowMenu(false);
+                                        }}
+                                    >
+                                        Change Chat Background
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                <div className="messages-container">
+                <div 
+                    className="messages-container"
+                    style={{
+                        backgroundImage: currentTheme ? `url('${BACKEND_URL}/${currentTheme}')` : 'none',
+                    }}
+                >
                     {messages.map((msg) => (
                         <div 
                             key={msg._id} 

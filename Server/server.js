@@ -24,6 +24,12 @@ if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir);
 }
 
+// Create themes directory if it doesn't exist
+const themesDir = path.join(__dirname, 'uploads', 'themes');
+if (!fs.existsSync(themesDir)) {
+    fs.mkdirSync(themesDir, { recursive: true });
+}
+
 // Configure multer for image upload
 const storage = multer.diskStorage({
     destination: function(req, file, cb) {
@@ -44,6 +50,32 @@ const upload = multer({
             return cb(new Error('Only image files are allowed!'), false);
         }
         cb(null, true);
+    }
+});
+
+// Add multer configuration for group icon uploads
+const groupIconStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const path = './uploads/group-icons';
+        fs.mkdirSync(path, { recursive: true });
+        cb(null, path);
+    },
+    filename: function (req, file, cb) {
+        cb(null, 'group-' + Date.now() + path.extname(file.originalname));
+    }
+});
+
+const uploadGroupIcon = multer({
+    storage: groupIconStorage,
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB limit
+    },
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only image files are allowed'));
+        }
     }
 });
 
@@ -277,6 +309,99 @@ app.post('/api/upload', authenticateToken, upload.single('image'), (req, res) =>
     } catch (error) {
         console.error('Upload error:', error);
         res.status(500).json({ error: 'Error uploading file' });
+    }
+});
+
+// Group settings routes
+app.put('/api/group/name', authenticateToken, async (req, res) => {
+    try {
+        const { name } = req.body;
+        if (!name || name.trim() === '') {
+            return res.status(400).json({ error: 'Group name cannot be empty' });
+        }
+
+        // In a real application, you would update the group name in the database
+        // For this example, we'll just broadcast the change to all clients
+        io.emit('group update', { type: 'name', name: name.trim() });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating group name:', error);
+        res.status(500).json({ error: 'Failed to update group name' });
+    }
+});
+
+app.put('/api/group/icon', authenticateToken, uploadGroupIcon.single('icon'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const iconUrl = req.file.path.replace(/\\/g, '/');
+        
+        // In a real application, you would update the group icon in the database
+        // For this example, we'll just broadcast the change to all clients
+        io.emit('group update', { type: 'icon', url: iconUrl });
+        res.json({ url: iconUrl });
+    } catch (error) {
+        console.error('Error updating group icon:', error);
+        res.status(500).json({ error: 'Failed to update group icon' });
+    }
+});
+
+// Theme routes
+app.get('/api/themes', authenticateToken, (req, res) => {
+    try {
+        const themesPath = path.join(__dirname, 'uploads', 'themes');
+        // Create themes directory if it doesn't exist
+        if (!fs.existsSync(themesPath)) {
+            fs.mkdirSync(themesPath, { recursive: true });
+        }
+
+        const files = fs.readdirSync(themesPath)
+            .filter(file => file.match(/\.(jpg|jpeg|png)$/i))
+            .map(file => ({
+                path: `uploads/themes/${file}`,
+                thumbnail: `uploads/themes/${file}`
+            }));
+
+        res.json({ themes: files });
+    } catch (error) {
+        console.error('Error loading themes:', error);
+        res.status(500).json({ error: 'Failed to load themes' });
+    }
+});
+
+app.get('/api/themes/current', authenticateToken, (req, res) => {
+    try {
+        // In a real application, you would fetch this from a database
+        // For now, we'll return null to indicate no theme is set
+        res.json({ theme: null });
+    } catch (error) {
+        console.error('Error fetching current theme:', error);
+        res.status(500).json({ error: 'Failed to fetch current theme' });
+    }
+});
+
+app.put('/api/themes/current', authenticateToken, (req, res) => {
+    try {
+        const { theme } = req.body;
+        if (!theme) {
+            return res.status(400).json({ error: 'Theme path is required' });
+        }
+
+        // Validate that the theme exists
+        const themePath = path.join(__dirname, theme);
+        if (!fs.existsSync(themePath)) {
+            return res.status(404).json({ error: 'Theme not found' });
+        }
+
+        // In a real application, you would save this to a database
+        // For now, we'll just broadcast the change to all clients
+        io.emit('theme update', theme);
+        res.json({ success: true, theme });
+    } catch (error) {
+        console.error('Error updating theme:', error);
+        res.status(500).json({ error: 'Failed to update theme' });
     }
 });
 

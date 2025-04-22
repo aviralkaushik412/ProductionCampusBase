@@ -493,6 +493,31 @@ body {
     height: 40px;
     border-radius: 50%;
     overflow: hidden;
+    position: relative;
+    cursor: pointer;
+}
+
+.chat-avatar:hover .avatar-overlay {
+    opacity: 1;
+}
+
+.avatar-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.avatar-overlay svg {
+    color: white;
+    font-size: 18px;
 }
 
 .chat-details {
@@ -536,27 +561,48 @@ body {
     flex: 1;
     overflow-y: auto;
     padding: 20px;
-    background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABkAAAAZCAYAAADE6YVjAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAOxAAADsQBlSsOGwAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAABoSURBVEiJ7dKxCYAwEEbhb52KnSu4Q0bICM7gHE5gZeEOVhYXqWIRU8QiErz+4HrH44oLEZG/kCTHbpKcknS/ZyXZ9pI0klb3RyXNks4H/k7S4v4gaXN/lTS5P0ja3R8kbe4PkuJXIgDwAWVeGRmzEl68AAAAAElFTkSuQmCC");
-    background-repeat: repeat;
-    background-color: #0b141a;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
+/* Remove the default background pattern */
+.messages-container::before {
+    content: '';
+    position: fixed;
+    top: 59px; /* Height of the chat header */
+    left: 30%; /* Width of the sidebar */
+    right: 0;
+    bottom: 62px; /* Height of the input area */
+    background-color: rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Ensure the background image covers the entire chat area */
+.messages-container {
+    background-position: center !important;
+    background-size: cover !important;
+    background-repeat: no-repeat !important;
+}
+
+/* Make sure messages appear above the overlay */
 .message {
+    position: relative;
+    z-index: 2;
     margin-bottom: 2px;
     display: flex;
     flex-direction: column;
     max-width: 65%;
-    position: relative;
-    margin-top: 2px;
 }
 
 .message.sent {
-    align-items: flex-end;
-    margin-left: auto;
+    align-self: flex-end;
 }
 
 .message.received {
-    align-items: flex-start;
+    align-self: flex-start;
 }
 
 .message-content {
@@ -576,49 +622,17 @@ body {
     border-top-left-radius: 0;
 }
 
-.message .username {
-    font-size: 12.8px;
-    color: #53bdeb;
-    margin-bottom: 2px;
-    display: block;
-}
-
-.message .text {
-    font-size: 14.2px;
-    color: #e9edef;
-    line-height: 19px;
-    margin-right: 40px;
-}
-
-.message-meta {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    position: absolute;
-    bottom: 4px;
-    right: 7px;
-}
-
-.timestamp {
-    font-size: 11px;
-    color: #8696a0;
-    margin-left: 4px;
-    line-height: 15px;
-}
-
-.read-receipt {
-    font-size: 11px;
-    color: #53bdeb;
-}
-
-.message-input {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 5px 16px;
-    background-color: #202c33;
+/* Ensure the messages end ref is above the overlay */
+.messages-container > div:last-child {
     position: relative;
-    height: 62px;
+    z-index: 2;
+}
+
+/* Message input area should be above the background */
+.message-input {
+    position: relative;
+    z-index: 3;
+    background-color: #202c33;
 }
 
 .message-input input[type="text"] {
@@ -754,7 +768,6 @@ body {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    margin-right: 15px;
     overflow: hidden;
 }
 
@@ -960,4 +973,98 @@ body {
         opacity: 1;
         transform: translate(-50%, -50%);
     }
+}
+
+.sidebar-footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 10px;
+    border-top: 1px solid #e9edef;
+    background-color: #f0f2f5;
+}
+
+.settings-button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 15px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: #54656f;
+    font-size: 16px;
+    text-align: left;
+}
+
+.settings-button:hover {
+    background-color: #e9edef;
+}
+
+.settings-button svg {
+    margin-right: 15px;
+    font-size: 20px;
+}
+
+.chat-name-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.edit-name-button {
+    background: none;
+    border: none;
+    color: #aebac1;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+.chat-name-container:hover .edit-name-button {
+    opacity: 1;
+}
+
+.edit-name-button:hover {
+    background-color: #384147;
+}
+
+.menu-container {
+    position: relative;
+}
+
+.menu-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background-color: #233138;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+    min-width: 200px;
+    margin-top: 8px;
+}
+
+.menu-dropdown button {
+    display: block;
+    width: 100%;
+    padding: 12px 16px;
+    text-align: left;
+    background: none;
+    border: none;
+    color: #e9edef;
+    font-size: 14.5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.menu-dropdown button:hover {
+    background-color: #182229;
 } 
