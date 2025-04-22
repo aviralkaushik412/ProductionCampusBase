@@ -105,7 +105,7 @@ const authenticateSocket = (socket, next) => {
     const token = socket.handshake.auth.token;
     if (!token) return next(new Error('Authentication error'));
 
-    jwt.verify(token, process.env.JWT_SECRET || '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb', (err, decoded) => {
+    jwt.verify(token, process.env.JWT_SECRET || 'a9bb101b21d7cf6c2701cff71eac8314eb7f5560d4cb5f358b34c7f1e4bd93aaa873adb5c569feb8a348e4ebfb609efe2f36ee8b7d98b7a57440876d6b571b7c', (err, decoded) => {
         if (err) return next(new Error('Authentication error'));
         socket.user = decoded;
         next();
@@ -123,7 +123,7 @@ const authenticateToken = (req, res, next) => {
         return res.status(401).json({ error: 'Authentication required' });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET || '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb', (err, user) => {
+    jwt.verify(token, process.env.JWT_SECRET || 'a9bb101b21d7cf6c2701cff71eac8314eb7f5560d4cb5f358b34c7f1e4bd93aaa873adb5c569feb8a348e4ebfb609efe2f36ee8b7d98b7a57440876d6b571b7c', (err, user) => {
         if (err) {
             return res.status(403).json({ error: 'Invalid token' });
         }
@@ -229,7 +229,7 @@ app.post('/api/register', async (req, res) => {
 
         const token = jwt.sign(
             { id: user._id, username, email },
-            process.env.JWT_SECRET || '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb',
+            process.env.JWT_SECRET || 'a9bb101b21d7cf6c2701cff71eac8314eb7f5560d4cb5f358b34c7f1e4bd93aaa873adb5c569feb8a348e4ebfb609efe2f36ee8b7d98b7a57440876d6b571b7c',
             { expiresIn: '1h' }
         );
         
@@ -252,7 +252,7 @@ app.post('/api/login', async (req, res) => {
 
         const token = jwt.sign(
             { id: user._id, username: user.username, email },
-            process.env.JWT_SECRET || '23456789oiuhgfde45yuiopojhgfe56iojbvfde456789oijhb',
+            process.env.JWT_SECRET || 'a9bb101b21d7cf6c2701cff71eac8314eb7f5560d4cb5f358b34c7f1e4bd93aaa873adb5c569feb8a348e4ebfb609efe2f36ee8b7d98b7a57440876d6b571b7c',
             { expiresIn: '1h' }
         );
 
